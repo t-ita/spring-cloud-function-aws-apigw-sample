@@ -1,32 +1,33 @@
 package com.myexample.serverless.apigw.functions;
 
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myexample.serverless.apigw.functions.models.Greeting;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
 
+import java.util.HashMap;
 import java.util.function.Function;
 
-public class Greet implements Function<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+public class Greet implements Function<Message<Greeting>, Message<Greeting>> {
 
     @Override
-    public APIGatewayProxyResponseEvent apply(APIGatewayProxyRequestEvent apiGatewayProxyRequestEvent) {
-        var responseEvent = new APIGatewayProxyResponseEvent();
+    public Message<Greeting> apply(Message<Greeting> greetingMessage) {
+        var greeting = greetingMessage.getPayload();
 
-        var mapper = new ObjectMapper();
-        try {
-            var body = apiGatewayProxyRequestEvent.getBody();
-            var greeting = mapper.readValue(body, Greeting.class);
+        var resPayload = new Greeting();
+        resPayload.setName("Spring Cloud Function - with springframework.messaging");
+        resPayload.setMessage(String.format("%s, %s", greeting.getMessage(), greeting.getName()));
 
-            var resGreeting = new Greeting();
-            resGreeting.setName("Spring Cloud Function");
-            resGreeting.setMessage(String.format("%s, %s", greeting.getMessage(), greeting.getName()));
+        var resHeader = new MessageHeaders(new HashMap<>());
 
-            responseEvent.setBody(mapper.writeValueAsString(resGreeting));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
-        return responseEvent;
+        return new Message<Greeting>() {
+            @Override
+            public Greeting getPayload() {
+                return resPayload;
+            }
+            @Override
+            public MessageHeaders getHeaders() {
+                return resHeader;
+            }
+        };
     }
 }
