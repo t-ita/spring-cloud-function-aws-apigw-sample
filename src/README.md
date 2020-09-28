@@ -6,20 +6,6 @@
 * このとき、HTTPプロキシ統合として作成する
 * Lambda 関数から作るとすぐに作成出来る
 
-# ハンドラの書き換え
-* API Gateway からの HTTPプロキシ統合されたリクエストを受け取るため、ハンドラを書き換える
-* RequestHandlerを以下の様にする
-```
-package com.myexample.serverless.apigw;
-
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import org.springframework.cloud.function.adapter.aws.SpringBootRequestHandler;
-
-public class RequestHandler extends SpringBootRequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
-}
-```
-
 # 関数の書き換え
 * APIGatewayProxyRequestEvent および APIGatewayProxyResponseEvent を受け取るようにする
 ```
@@ -59,6 +45,11 @@ public class Greet implements Function<APIGatewayProxyRequestEvent, APIGatewayPr
 
 # AWS Lambda に Jar をアップロード
 * 置き換える
+
+# ハンドラを以下に指定
+```
+org.springframework.cloud.function.adapter.aws.SpringBootApiGatewayRequestHandler
+```
 
 # テスト
 * Lambda側でのテスト
@@ -129,15 +120,6 @@ public class Greet implements Function<Message<Greeting>, Message<Greeting>> {
     }
 }
 ```
-* Handler を以下の様に書き換える
-```
-package com.myexample.serverless.apigw;
-
-import org.springframework.cloud.function.adapter.aws.SpringBootApiGatewayRequestHandler;
-
-public class RequestHandler extends SpringBootApiGatewayRequestHandler {
-}
-```
 
 # 同様にテストする
 * Lambda側でのテスト
@@ -174,3 +156,36 @@ public class RequestHandler extends SpringBootApiGatewayRequestHandler {
       "message": "Hello, t-ita"
     }
   ```
+  
+# 起動の高速化を図る
+* Functional Bean Definitons を利用する
+* main クラスを以下の様に書き換える
+```
+package com.myexample.serverless.apigw;
+
+import com.myexample.serverless.apigw.functions.Greet;
+import com.myexample.serverless.apigw.functions.models.Greeting;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.function.context.FunctionRegistration;
+import org.springframework.cloud.function.context.FunctionType;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.messaging.Message;
+
+@SpringBootApplication
+public class SpringCloudFunctionAwsApigwSampleApplication implements ApplicationContextInitializer<GenericApplicationContext> {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringCloudFunctionAwsApigwSampleApplication.class, args);
+    }
+
+    @Override
+    public void initialize(GenericApplicationContext context) {
+        context.registerBean(
+                FunctionRegistration.class,
+                () -> new FunctionRegistration<>(new Greet()).type(FunctionType.of(Greet.class)));
+    }
+}
+```
+* application.properties の 関数スキャンは不要になるので記述を削除
